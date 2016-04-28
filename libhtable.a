@@ -1,0 +1,258 @@
+!<arch>
+//                                              20        `
+htab_lookup_add.c/
+
+hash_function.c/0           0     0     644     273       `
+//
+// Created by rockuo on 28.4.16.
+//
+
+
+unsigned int hash_function(const char *str, unsigned htab_size) {
+    unsigned int h = 0;
+    const unsigned char *p;
+    for (p = (const unsigned char *) str; *p != '\0'; p++)
+        h = 65599 * h + *p;
+    return h % htab_size;
+}
+htab_clear.c/   0           0     0     644     531       `
+//
+// Created by rockuo on 28.4.16.
+//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "htable.h"
+
+void htab_clear(htab_t *t) {
+    if (t == NULL) {
+        fprintf(stderr, "Chyba: Chybne tadana tabulka nebo klic\n");
+        return;
+    }
+
+    struct htab_listitem *listitem;
+    for (int i = 0; i < t->htab_size; i++) {
+        listitem = t->htab_lists[i];
+
+        while (t->htab_lists[i] != NULL) {
+            t->htab_lists[i] = listitem->next;
+            free(listitem->key);
+            free(listitem);
+        }
+
+    }
+}
+
+htab_foreach.c/ 0           0     0     644     635       `
+//
+// Created by rockuo on 28.4.16.
+//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "htable.h"
+
+
+void htab_foreach(htab_t *t, void (*function)(const char *, unsigned)) {
+    if (t == NULL) {
+        fprintf(stderr, "Chybna: spatne zadana tabulka\n");
+        return;
+    }
+
+    struct htab_listitem *listItem;
+
+    for (int i = 0; i < t->htab_size; i++) {
+        if (t->htab_lists[i] == NULL)
+            continue;
+
+        listItem = t->htab_lists[i];
+
+        function(listItem->key, listItem->data);
+
+        while ((listItem = listItem->next) != NULL) {
+            function(listItem->key, listItem->data);
+        }
+
+    }
+
+}
+htab_free.c/    0           0     0     644     275       `
+//
+// Created by rockuo on 28.4.16.
+//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "htable.h"
+
+void htab_free(htab_t *t) {
+    if (t == NULL) {
+        fprintf(stderr, "Chyba: Chybne tadana tabulka nebo klic\n");
+        return;
+    }
+
+
+    htab_clear(t);
+    free(t);
+}
+htab_init.c/    0           0     0     644     565       `
+//
+// Created by rockuo on 28.4.16.
+//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "htable.h"
+
+htab_t *htab_init(int htab_size) {
+
+    if (htab_size <= 0) {
+        fprintf(stderr, "Chyba: Priliz mala velikost tabulky\n");
+        return NULL;
+    }
+
+    htab_t *t = (htab_t *) malloc(sizeof(htab_t) + htab_size * sizeof(struct htab_listitem *));
+
+    if (t == NULL)
+        return NULL;
+
+    t->htab_size = htab_size;
+    t->hash_fun_ptr = hash_function;
+    t->n = 0;
+
+    for (int i = 0; i < htab_size; i++)
+        t->htab_lists[i] = NULL;
+
+    return t;
+}
+htab_init2.c/   0           0     0     644     622       `
+//
+// Created by rockuo on 28.4.16.
+//
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "htable.h"
+
+
+htab_t *htab_init2(int htab_size, unsigned int  (*hash_fun_ptr)(const char *, unsigned)) {
+
+    if (htab_size <= 0) {
+        fprintf(stderr, "Chyba: Priliz mala velikost tabulky\n");
+        return NULL;
+    }
+
+    htab_t *t = (htab_t *) malloc(sizeof(htab_t) + htab_size * sizeof(struct htab_listitem *));
+
+    if (t == NULL)
+        return NULL;
+
+    t->htab_size = htab_size;
+    t->hash_fun_ptr = hash_fun_ptr;
+    t->n = 0;
+
+    for (int i = 0; i < htab_size; i++)
+        t->htab_lists[i] = NULL;
+
+    return t;
+}/0              0           0     0     644     1469      `
+//
+// Created by rockuo on 28.4.16.
+//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "htable.h"
+
+struct htab_listitem *htab_lookup_add(htab_t *t, const char *key) {
+
+    if ((t == NULL) || (key == NULL)) {
+        fprintf(stderr, "Chyba: Chybne zadana tabulka nebo klic\n");
+        return NULL;
+    }
+
+    unsigned int hash = (unsigned int) ((t->hash_fun_ptr))(key, t->htab_size);
+
+    if ((t->htab_lists)[hash] == NULL) {
+        struct htab_listitem *new_listitem = (struct htab_listitem *) malloc(sizeof(struct htab_listitem));
+        new_listitem->key = (char *) malloc(strlen(key) + 1);
+        strcpy(new_listitem->key, key);
+        new_listitem->data = 1;
+        new_listitem->next = NULL;
+
+        (t->htab_lists)[hash] = new_listitem;
+        return new_listitem;
+    }
+
+    struct htab_listitem *now = (t->htab_lists)[hash];
+    while (1) {
+        if (strcmp(now->key, key) == 0) {
+            (t->n)++;
+            (now->data)++;
+            return now;
+        } else if (now->next == NULL) {
+            struct htab_listitem *new_listitem = (struct htab_listitem *) malloc(sizeof(struct htab_listitem));
+            new_listitem->key = (char *) malloc(strlen(key) + 1);
+            strcpy(new_listitem->key, key);
+            new_listitem->data = 1;
+            new_listitem->next = NULL;
+
+            now->next = new_listitem;
+            return new_listitem;
+        } else {
+            now = now->next;
+        }
+
+    }
+
+}
+
+
+htab_remove.c/  0           0     0     644     971       `
+//
+// Created by rockuo on 28.4.16.
+//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "htable.h"
+
+void htab_remove(htab_t *t, const char *key) {
+
+    if ((t == NULL) || (key == NULL)) {
+        fprintf(stderr, "Chyba: Chybne zadana tabulka nebo klic\n");
+        return;
+    }
+
+    unsigned int hash = (unsigned int) ((t->hash_fun_ptr))(key, t->htab_size);
+
+    struct htab_listitem *listitem = t->htab_lists[hash];
+
+    if (listitem == NULL)
+        return;
+
+    if (strcmp(listitem->key, key)) {
+        t->htab_lists[hash] = listitem->next;
+        free(listitem->key);
+        free(listitem);
+        return;
+    }
+
+    struct htab_listitem *prev = t->htab_lists[hash];
+
+
+    while (listitem != NULL) {
+        if (strcmp(listitem->key, key)) {
+            prev->next = listitem->next;
+            free(listitem->key);
+            free(listitem);
+            return;
+        }
+        prev = listitem;
+        listitem = listitem->next;
+    }
+
+}
